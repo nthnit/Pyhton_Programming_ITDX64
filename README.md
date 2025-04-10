@@ -1,7 +1,7 @@
 # Pyhton_Programming_ITDX64
 # Wine Quality Prediction using k-NN
 
-This repository is part of a group project for the course **Ứng dụng AI trong kinh doanh và quản lý** supervised by TS. Lưu Minh Tuấn. The project implements a wine quality prediction system using the k-Nearest Neighbors (k-NN) classification algorithm, combined with an interactive web application built with Streamlit.
+
 
 ## Table of Contents
 - [Overview](#overview)
