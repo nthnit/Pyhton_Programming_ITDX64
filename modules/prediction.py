@@ -5,29 +5,31 @@ import matplotlib.pyplot as plt
 
 def show(data, tr):
     st.markdown(
-        """
-        <style>
-        div.stButton > button {
-            background-color: rgb(0, 102, 204) !important;
-            color: white !important;
-            border: none !important;
-        }
-        div.stButton > button:hover {
-            background-color: rgb(0, 82, 184) !important;
-        }
-        .focused {
-            border-color: rgb(0, 102, 204) !important;
-        }
-        </style>
-        """, unsafe_allow_html=True
-    )
+    """
+    <style>
+    /* Chỉ ảnh hưởng đến NỘI DUNG chính, không đụng Sidebar */
+    section.main div.stButton > button {
+        background-color: rgb(0, 102, 204) !important;
+        color: white !important;
+        border: none !important;
+    }
+    section.main div.stButton > button:hover {
+        background-color: rgb(0, 82, 184) !important;
+    }
+    section.main .focused {
+        border-color: rgb(0, 102, 204) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True
+)
+
     
     st.header(tr("section4_header"))
-    if "knn" not in st.session_state or "scaler" not in st.session_state:
+    if "model" not in st.session_state or "scaler" not in st.session_state:
         st.warning("Please go to Section 3: Preprocessing & Training first.")
     else:
         scaler = st.session_state.scaler
-        knn = st.session_state.knn
+        model = st.session_state.model
         
         st.markdown(tr("section4_description"))
         fixed_acidity = st.number_input("Fixed Acidity", value=float(data["fixed acidity"].mean()))
@@ -50,21 +52,21 @@ def show(data, tr):
                                              free_sulfur_dioxide, total_sulfur_dioxide, density, pH, sulphates, alcohol]],
                                           columns=feature_names)
             input_scaled = scaler.transform(input_features)
-            prediction = knn.predict(input_scaled)
+            prediction = model.predict(input_scaled)
             st.success(f"Predicted Wine Quality: {prediction[0]}")
             
-            # Minh họa kết quả bằng biểu đồ xác suất của các lớp
-            proba = knn.predict_proba(input_scaled)[0]
-            classes = knn.classes_
-            
-            fig, ax = plt.subplots(figsize=(10, 4))
-            bars = ax.bar(classes, proba, color='skyblue', edgecolor='black')
-            ax.set_xlabel("Wine Quality")
-            ax.set_ylabel("Probability")
-            ax.set_title("Predicted Probability Distribution")
-            # Hiển thị giá trị xác suất trên từng cột
-            for bar in bars:
-                height = bar.get_height()
-                ax.text(bar.get_x() + bar.get_width() / 2., height,
-                        f"{height:.2f}", ha='center', va='bottom')
-            st.pyplot(fig, use_container_width=False)
+            # Nếu model có hỗ trợ predict_proba thì vẽ biểu đồ
+            if hasattr(model, "predict_proba"):
+                proba = model.predict_proba(input_scaled)[0]
+                classes = model.classes_
+                
+                fig, ax = plt.subplots(figsize=(10, 4))
+                bars = ax.bar(classes, proba, color='skyblue', edgecolor='black')
+                ax.set_xlabel("Wine Quality")
+                ax.set_ylabel("Probability")
+                ax.set_title("Predicted Probability Distribution")
+                for bar in bars:
+                    height = bar.get_height()
+                    ax.text(bar.get_x() + bar.get_width() / 2., height,
+                            f"{height:.2f}", ha='center', va='bottom')
+                st.pyplot(fig, use_container_width=False)

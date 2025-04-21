@@ -14,9 +14,6 @@ st.markdown("""
     background-color: rgb(34, 83, 192);
     }
 }
-
-
- 
 </style>""",
 unsafe_allow_html=True)
 
