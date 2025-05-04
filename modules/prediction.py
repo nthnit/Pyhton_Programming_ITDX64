@@ -4,10 +4,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 def show(data, tr):
+    # Custom CSS for buttons (same as before)
     st.markdown(
     """
     <style>
-    /* Chỉ ảnh hưởng đến NỘI DUNG chính, không đụng Sidebar */
     section.main div.stButton > button {
         background-color: rgb(0, 102, 204) !important;
         color: white !important;
@@ -21,52 +21,81 @@ def show(data, tr):
     }
     </style>
     """, unsafe_allow_html=True
-)
+    )
 
-    
     st.header(tr("section4_header"))
     if "model" not in st.session_state or "scaler" not in st.session_state:
         st.warning("Please go to Section 3: Preprocessing & Training first.")
-    else:
-        scaler = st.session_state.scaler
-        model = st.session_state.model
-        
-        st.markdown(tr("section4_description"))
-        fixed_acidity = st.number_input("Fixed Acidity", value=float(data["fixed acidity"].mean()))
-        volatile_acidity = st.number_input("Volatile Acidity", value=float(data["volatile acidity"].mean()))
-        citric_acid = st.number_input("Citric Acid", value=float(data["citric acid"].mean()))
-        residual_sugar = st.number_input("Residual Sugar", value=float(data["residual sugar"].mean()))
-        chlorides = st.number_input("Chlorides", value=float(data["chlorides"].mean()))
-        free_sulfur_dioxide = st.number_input("Free Sulfur Dioxide", value=float(data["free sulfur dioxide"].mean()))
-        total_sulfur_dioxide = st.number_input("Total Sulfur Dioxide", value=float(data["total sulfur dioxide"].mean()))
-        density = st.number_input("Density", value=float(data["density"].mean()))
-        pH = st.number_input("pH", value=float(data["pH"].mean()))
-        sulphates = st.number_input("Sulphates", value=float(data["sulphates"].mean()))
-        alcohol = st.number_input("Alcohol", value=float(data["alcohol"].mean()))
-        
+        return
+
+    scaler = st.session_state.scaler
+    model  = st.session_state.model
+    feature_names = list(data.drop("quality", axis=1).columns)
+
+    st.markdown(tr("section4_description"))
+
+    # --- SINGLE SAMPLE INPUT --------------------------------------------------
+    st.subheader("Single-sample Prediction")
+    with st.expander("Single-sample prediction", expanded=True):
+        inputs = {
+            "fixed acidity": st.number_input("Fixed Acidity", value=float(data["fixed acidity"].mean())),
+            "volatile acidity": st.number_input("Volatile Acidity", value=float(data["volatile acidity"].mean())),
+            "citric acid": st.number_input("Citric Acid", value=float(data["citric acid"].mean())),
+            "residual sugar": st.number_input("Residual Sugar", value=float(data["residual sugar"].mean())),
+            "chlorides": st.number_input("Chlorides", value=float(data["chlorides"].mean())),
+            "free sulfur dioxide": st.number_input("Free Sulfur Dioxide", value=float(data["free sulfur dioxide"].mean())),
+            "total sulfur dioxide": st.number_input("Total Sulfur Dioxide", value=float(data["total sulfur dioxide"].mean())),
+            "density": st.number_input("Density", value=float(data["density"].mean())),
+            "pH": st.number_input("pH", value=float(data["pH"].mean())),
+            "sulphates": st.number_input("Sulphates", value=float(data["sulphates"].mean())),
+            "alcohol": st.number_input("Alcohol", value=float(data["alcohol"].mean()))
+        }
         if st.button(tr("predict_button")):
-            # Lấy tên các feature từ dữ liệu gốc (loại bỏ cột 'quality')
-            feature_names = list(data.drop("quality", axis=1).columns)
-            # Tạo DataFrame từ các giá trị input với các tên cột phù hợp
-            input_features = pd.DataFrame([[fixed_acidity, volatile_acidity, citric_acid, residual_sugar, chlorides,
-                                             free_sulfur_dioxide, total_sulfur_dioxide, density, pH, sulphates, alcohol]],
-                                          columns=feature_names)
-            input_scaled = scaler.transform(input_features)
-            prediction = model.predict(input_scaled)
-            st.success(f"Predicted Wine Quality: {prediction[0]}")
+            df_single = pd.DataFrame([inputs], columns=feature_names)
+            Xs = scaler.transform(df_single)
+            y_pred = model.predict(Xs)
+            st.success(f"Predicted Wine Quality: {y_pred[0]}")
             
-            # Nếu model có hỗ trợ predict_proba thì vẽ biểu đồ
+            # show probabilities if available
             if hasattr(model, "predict_proba"):
-                proba = model.predict_proba(input_scaled)[0]
+                proba = model.predict_proba(Xs)[0]
                 classes = model.classes_
-                
-                fig, ax = plt.subplots(figsize=(10, 4))
+                fig, ax = plt.subplots(figsize=(8, 3))
                 bars = ax.bar(classes, proba, color='skyblue', edgecolor='black')
-                ax.set_xlabel("Wine Quality")
+                ax.set_xlabel("Quality")
                 ax.set_ylabel("Probability")
-                ax.set_title("Predicted Probability Distribution")
+                ax.set_title("Prediction Probabilities")
                 for bar in bars:
-                    height = bar.get_height()
-                    ax.text(bar.get_x() + bar.get_width() / 2., height,
-                            f"{height:.2f}", ha='center', va='bottom')
+                    h = bar.get_height()
+                    ax.text(bar.get_x()+bar.get_width()/2, h, f"{h:.2f}", ha='center', va='bottom')
                 st.pyplot(fig, use_container_width=False)
+
+    # --- BATCH PREDICTION -----------------------------------------------------
+    st.subheader("Batch Prediction")
+    uploaded = st.file_uploader("Upload CSV of samples", type="csv", help="CSV must contain exactly these columns: " + ", ".join(feature_names))
+    if uploaded is not None:
+        try:
+            df_batch = pd.read_csv(uploaded)
+            # Validate columns
+            missing = set(feature_names) - set(df_batch.columns)
+            extra   = set(df_batch.columns)  - set(feature_names)
+            if missing:
+                st.error(f"Missing columns: {', '.join(missing)}")
+            elif extra:
+                st.warning(f"Ignoring extra columns: {', '.join(extra)}")
+                df_batch = df_batch[feature_names]
+            # Scale & predict
+            Xb = scaler.transform(df_batch)
+            preds = model.predict(Xb)
+            df_batch["predicted_quality"] = preds
+            # Probabilities
+            if hasattr(model, "predict_proba"):
+                proba = model.predict_proba(Xb)
+                for idx, cls in enumerate(model.classes_):
+                    df_batch[f"prob_{cls}"] = proba[:, idx]
+            st.dataframe(df_batch)
+            # Download button
+            csv = df_batch.to_csv(index=False).encode('utf-8')
+            st.download_button("Download Predictions CSV", data=csv, file_name="wine_quality_predictions.csv", mime="text/csv")
+        except Exception as e:
+            st.error(f"Error processing file: {e}")
